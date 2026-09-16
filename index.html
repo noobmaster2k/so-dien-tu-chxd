@@ -889,19 +889,33 @@ var pinVisible = {};
 async function renderManage(){
   var { data, error } = await sb.rpc('admin_list_stores', { p_admin_pin: state.adminPin });
   var stores = error ? [] : (data||[]);
-  var rows = '<tr><th>Tên cửa hàng</th><th>Mã PIN</th><th></th><th></th></tr>';
+  var rows = '<tr><th>Tên cửa hàng</th><th>Mã PIN</th><th></th><th></th><th></th></tr>';
   stores.forEach(function(s){
     rows += '<tr><td>'+esc(s.name)+'</td><td class="mono pinshow">'+(pinVisible[s.id]?esc(s.pin):'••••')+'</td>'+
       '<td><button class="btn ghost sm" data-togglepin="'+esc(s.id)+'">'+(pinVisible[s.id]?'Ẩn':'Hiện')+'</button></td>'+
+      '<td><button class="btn ghost sm" data-editpin="'+esc(s.id)+'">Đổi PIN</button></td>'+
       '<td><button class="btn ghost sm" data-delstore="'+esc(s.id)+'">Xóa khỏi danh sách</button></td></tr>';
   });
   document.getElementById('storeMgmtTable').innerHTML = stores.length? rows : '<tr><td style="text-align:center;color:var(--ink-dim);">Chưa có cửa hàng nào.</td></tr>';
   Array.prototype.forEach.call(document.querySelectorAll('[data-togglepin]'), function(b){
     b.addEventListener('click', function(){ var id=b.getAttribute('data-togglepin'); pinVisible[id]=!pinVisible[id]; renderManage(); });
   });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-editpin]'), function(b){
+    b.addEventListener('click', async function(){
+      var id = b.getAttribute('data-editpin');
+      var newPin = prompt('Nhập mã PIN mới cho cửa hàng này:');
+      if(newPin==null) return;
+      newPin = newPin.trim();
+      if(!newPin){ alert('Mã PIN không được để trống.'); return; }
+      var { error } = await sb.rpc('admin_set_store_pin', { p_admin_pin: state.adminPin, p_store_id: id, p_new_pin: newPin });
+      if(error){ alert('Lỗi: '+error.message); return; }
+      pinVisible[id] = true;
+      await renderManage();
+    });
+  });
   Array.prototype.forEach.call(document.querySelectorAll('[data-delstore]'), function(b){
     b.addEventListener('click', async function(){
-      if(!confirm('Xóa cửa hàng này khỏi danh sách đăng nhập? (Dữ liệu sổ đã nhập của cửa hàng sẽ được giữ nguyên, chỉ không đăng nhập được nữa.)')) return;
+      if(!confirm('Xóa cửa hàng này khỏi danh sách đăng nhập? CẢNH BÁO: toàn bộ sổ máy phát điện và sổ cột bơm đã nhập của cửa hàng này sẽ bị xóa vĩnh viễn theo, không khôi phục được. Chỉ dùng khi chắc chắn cửa hàng này không còn hoạt động.')) return;
       var id = b.getAttribute('data-delstore');
       await sb.rpc('admin_delete_store', { p_admin_pin: state.adminPin, p_store_id: id });
       await loadPublicStores(); await renderManage();
